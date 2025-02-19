@@ -7,7 +7,7 @@ function App() {
 
   // Fetch data from backend API
   useEffect(() => {
-    fetch('https://your-backend-api.onrender.com/api/data')
+    fetch('https://backend-hsn6.onrender.com/api/data')
       .then((res) => res.json())
       .then((data) => setData(data))
       .catch((err) => console.log(err));
@@ -15,7 +15,7 @@ function App() {
 
   // Send data to backend
   const handleSubmit = async () => {
-    const response = await fetch('https://your-backend-api.onrender.com/api/save', {
+    const response = await fetch('https://backend-hsn6.onrender.com/api/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),
