@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FiRefreshCw, FiMessageSquare, FiCheckCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiMessageSquare, FiCheckCircle, FiLogOut } from 'react-icons/fi';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './AuthContext';
 import './App.css';
 
-function App() {
+// 1. Create separate MessageBoard component
+const MessageBoard = () => {
   const [message, setMessage] = useState('');
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
-  // Fetch data from backend API
   const fetchMessages = async () => {
     try {
       const response = await fetch('https://backend-hsn6.onrender.com/api/data');
@@ -21,31 +25,39 @@ function App() {
     }
   };
 
-  // Load messages on component mount and auto-refresh every 30 seconds
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 30000); // Auto-refresh
+    const interval = setInterval(fetchMessages, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Send message to backend
   const handleSubmit = async () => {
     if (!message.trim()) return;
     setIsSending(true);
     try {
       const response = await fetch('https://backend-hsn6.onrender.com/api/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ message }),
       });
-      await response.json();
-      await fetchMessages(); // Refresh messages after submission
+      
+      if (!response.ok) throw new Error('Failed to send message');
+      
+      await fetchMessages();
       setMessage('');
     } catch (err) {
       console.error('Error sending message:', err);
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -55,9 +67,14 @@ function App() {
           <img src="/logo.png" alt="Logo" className="logo-image" />
           <h1>Damla's Message Board</h1>
         </div>
-        <button onClick={fetchMessages} className="refresh-btn">
-          <FiRefreshCw /> Refresh
-        </button>
+        <div>
+          <button onClick={fetchMessages} className="refresh-btn">
+            <FiRefreshCw /> Refresh
+          </button>
+          <button onClick={handleLogout} className="logout-btn">
+            <FiLogOut /> Logout
+          </button>
+        </div>
       </header>
 
       <main>
@@ -99,6 +116,75 @@ function App() {
       </main>
     </div>
   );
+};
+
+// 2. Create Login component
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const success = await login(email, password);
+    if (success) navigate('/');
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const success = await register(email, password);
+    if (success) alert('Registration successful! Please login.');
+  };
+
+  return (
+    <div className="auth-form">
+      <h2>Welcome to Damla's Message Board</h2>
+      <div className="auth-container">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <div className="auth-buttons">
+          <button onClick={handleLogin}>Login</button>
+          <button onClick={handleRegister}>Register</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 3. Update main App component with routing
+export default function AppWrapper() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <MessageBoard />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App;
+// 4. Add authentication check component
+const RequireAuth = ({ children }) => {
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" replace />;
+};
